@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Portafolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="responsive.css">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body>
+    <div id="loading-overlay">
+        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 3rem; color: var(--accent-primary);"></i>
+    </div>
+
+    <div class="app-container" style="opacity: 0; transition: opacity 0.5s ease;">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Portafolio Pro</span>
+            </div>
+
+            <ul class="nav-links">
+                <li class="active" data-tab="dashboard">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Resumen</span>
+                </li>
+                <li data-tab="networth">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                    <span>Patrimonio Global</span>
+                </li>
+                <li data-tab="symbols">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Mis Acciones (ABM)</span>
+                </li>
+                <li data-tab="operations">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Operaciones</span>
+                </li>
+                <li data-tab="assets">
+                    <i class="fa-solid fa-gem"></i>
+                    <span>Otros Activos</span>
+                </li>
+                <li data-tab="reports">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Tendiencia / Reportes</span>
+                </li>
+                <li data-tab="settings">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Datos / CSV</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="btn-icon mobile-menu-toggle" id="menu-toggle"
+                        style="display: none; font-size: 1.25rem;">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <h2 id="page-title">Resumen del Portafolio</h2>
+                </div>
+                <div class="date-display" id="current-date">--/--/----</div>
+            </header>
+
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view active">
+                <div class="cards-grid">
+                    <div class="card stat-card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <h3>Capital Invertido</h3>
+                            <select id="currency-selector"
+                                style="padding: 0.25rem 0.5rem; font-size: 0.8rem; width: auto; background: rgba(255,255,255,0.1);">
+                                <option value="ARS" selected>🇦🇷 ARS</option>
+                                <option value="USD">🇺🇸 USD</option>
+                            </select>
+                        </div>
+                        <p class="stat-value" id="total-money">$0</p>
+                        <p class="stat-desc">Costo histórico neto</p>
+                    </div>
+                    <div class="card stat-card">
+                        <h3>Total Operaciones</h3>
+                        <p class="stat-value" id="total-ops">0</p>
+                    </div>
+                    <div class="card stat-card">
+                        <h3>Acciones Configuradas</h3>
+                        <p class="stat-value" id="total-symbols">0</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-split">
+                    <div class="card table-card" style="flex: 2;">
+                        <h3>Tenencia Actual (Estimada)</h3>
+                        <div class="table-responsive">
+                            <table id="holdings-table">
+                                <thead>
+                                    <tr>
+                                        <th>Símbolo</th>
+                                        <th>Cantidad Neta</th>
+                                        <th>Costo Original (Est.)</th>
+                                        <th>% Portafolio</th>
+                                        <th>Ratio Objetivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card chart-card" style="flex: 1; min-width: 300px;">
+                        <h3>Distribución</h3>
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="portfolioChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Symbols (Mis Acciones) View -->
+            <section id="symbols" class="view">
+                <div class="card form-card">
+                    <h3>Agregar Nueva Acción</h3>
+                    <form id="symbol-form">
+                        <div class="form-group">
+                            <label for="symbol-ticker">Símbolo (Ticker)</label>
+                            <input type="text" id="symbol-ticker" placeholder="Ej. AAPL, KO, MELI" required uppercase>
+                        </div>
+                        <div class="form-group">
+                            <label for="symbol-ratio">Ratio Objetivo (%)</label>
+                            <input type="number" id="symbol-ratio" placeholder="0 - 100" min="0" max="100" step="0.1"
+                                required>
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <i class="fa-solid fa-plus"></i> Agregar
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card table-card">
+                    <h3>Listado de Acciones</h3>
+                    <div class="table-responsive">
+                        <table id="symbols-table">
+                            <thead>
+                                <tr>
+                                    <th>Símbolo</th>
+                                    <th>Ratio Objetivo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Operations View -->
+            <section id="operations" class="view">
+                <div class="card form-card">
+                    <h3>Registrar Operación</h3>
+                    <form id="operation-form">
+                        <input type="hidden" id="op-id">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="op-symbol">Acción</label>
+                                <select id="op-symbol" required>
+                                    <option value="" disabled selected>Seleccionar...</option>
+                                    <!-- Dinámico -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="op-type">Tipo</label>
+                                <select id="op-type" required>
+                                    <option value="BUY">Compra</option>
+                                    <option value="SELL">Venta</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="op-mep">Dólar MEP ($)</label>
+                                <input type="number" id="op-mep" step="0.01" min="0" placeholder="Ej. 1100.50" required>
+                                <small style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 0.25rem;">Se
+                                    recordará el último valor ingresado</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="op-amount">Monto Total ($ARS)</label>
+                                <input type="number" id="op-amount" step="0.01" min="0"
+                                    placeholder="Monto total pagado/cobrado" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="op-qty">Cantidad (Cedears)</label>
+                                <input type="number" id="op-qty" min="1" step="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="op-date">Fecha</label>
+                                <input type="date" id="op-date" required>
+                            </div>
+                        </div>
+                        <div class="form-actions" style="display: flex; gap: 1rem; align-items: center;">
+                            <button type="submit" class="btn-primary" id="btn-submit-op">
+                                <i class="fa-solid fa-paper-plane"></i> Registrar
+                            </button>
+                            <button type="button" class="btn-secondary" id="btn-cancel-edit"
+                                style="display: none; margin: 0;">
+                                <i class="fa-solid fa-xmark"></i> Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card table-card">
+                    <h3>Historial de Operaciones</h3>
+                    <div class="table-responsive">
+                        <table id="operations-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Acción</th>
+                                    <th>Tipo</th>
+                                    <th>Cant.</th>
+                                    <th>Monto ($ARS)</th>
+                                    <th>MEP</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Assets (Otros Activos) View -->
+            <section id="assets" class="view">
+                <div class="cards-grid">
+                    <div class="card stat-card">
+                        <h3>Total Activos Físicos (USD)</h3>
+                        <p class="stat-value" id="total-assets-value">$0</p>
+                        <p class="stat-desc">Valuación manual</p>
+                    </div>
+                </div>
+
+                <div class="card form-card">
+                    <h3>Agregar Otro Activo</h3>
+                    <form id="asset-form">
+                        <div class="form-group">
+                            <label for="asset-name">Nombre del Activo</label>
+                            <input type="text" id="asset-name" placeholder="Ej. Departamento, Auto, Efectivo USD"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label for="asset-value">Valor (USD)</label>
+                            <input type="number" id="asset-value" placeholder="Valor en Dólares" min="0" step="0.01"
+                                required>
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <i class="fa-solid fa-plus"></i> Agregar
+                        </button>
+                    </form>
+                </div>
+
+                <div class="card table-card">
+                    <h3>Mis Otros Activos</h3>
+                    <div class="table-responsive">
+                        <table id="assets-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Valor (USD)</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Net Worth (Patrimonio) View -->
+            <section id="networth" class="view">
+                <div class="cards-grid">
+                    <div class="card stat-card">
+                        <h3>Portafolio (Invertido) USD</h3>
+                        <p class="stat-value" id="nw-portfolio-val">$0</p>
+                    </div>
+                    <div class="card stat-card">
+                        <h3>Otros Activos USD</h3>
+                        <p class="stat-value" id="nw-assets-val">$0</p>
+                    </div>
+                    <div class="card stat-card" style="border-left: 4px solid var(--accent-primary);">
+                        <h3>Patrimonio Total USD</h3>
+                        <p class="stat-value" id="nw-total-val">$0</p>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <h3>Distribución Patrimonial</h3>
+                    <div class="chart-container" style="position: relative; height: 400px;">
+                        <canvas id="netWorthChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports View -->
+            <section id="reports" class="view">
+                <div class="card">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3>Evolución de Movimientos</h3>
+                        <div class="report-controls">
+                            <label
+                                style="margin-right: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">Agrupar
+                                por:</label>
+                            <select id="report-freq"
+                                style="padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                                <option value="YEAR">Año</option>
+                                <option value="MONTH">Mes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="reports-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" style="vertical-align: middle;">Periodo</th>
+                                    <th colspan="3"
+                                        style="text-align: center; border-bottom: 1px solid var(--border-color);">Pesos
+                                        (ARS)</th>
+                                    <th colspan="3"
+                                        style="text-align: center; border-bottom: 1px solid var(--border-color);">
+                                        Dólares (USD Est.)</th>
+                                </tr>
+                                <tr>
+                                    <th style="color: var(--success);">Compras</th>
+                                    <th style="color: var(--danger);">Ventas</th>
+                                    <th>Neto</th>
+                                    <th style="color: var(--success);">Compras</th>
+                                    <th style="color: var(--danger);">Ventas</th>
+                                    <th>Neto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card chart-card" style="margin-top: 1.5rem;">
+                    <h3>Flujo de Caja (Neto USD)</h3>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="reportsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Settings View -->
+            <section id="settings" class="view">
+                <div class="card">
+                    <h3>Gestión de Datos (CSV)</h3>
+                    <p class="desc">
+                        Como esta es una aplicación web local sin servidor, los datos se guardan en tu navegador.
+                        Puedes exportarlos a CSV para tener un respaldo o importarlos desde un archivo.
+                    </p>
+
+                    <div class="actions-row">
+                        <div class="action-block">
+                            <h4>Exportar</h4>
+                            <button id="btn-export-symbols" class="btn-secondary">
+                                <i class="fa-solid fa-download"></i> Descargar Acciones (.csv)
+                            </button>
+                            <button id="btn-export-ops" class="btn-secondary">
+                                <i class="fa-solid fa-download"></i> Descargar Operaciones (.csv)
+                            </button>
+                            <button id="btn-export-assets" class="btn-secondary">
+                                <i class="fa-solid fa-download"></i> Descargar Activos (.csv)
+                            </button>
+                            <div
+                                style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                                <button id="btn-export-all" class="btn-primary" style="width: 100%;">
+                                    <i class="fa-solid fa-file-zipper"></i> Descargar Copia de Seguridad (.zip)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="action-block">
+                            <h4>Importar</h4>
+                            <label class="desc-small">Restaurar Copia de Seguridad (Carpeta)</label>
+                            <input type="file" id="file-import-folder" webkitdirectory directory multiple>
+
+                            <div
+                                style="margin-top: 1rem; border-bottom: 1px solid var(--border-color); margin-bottom: 1rem;">
+                            </div>
+
+                            <label class="desc-small">Cargar Acciones (Reemplaza lista actual)</label>
+                            <input type="file" id="file-import-symbols" accept=".csv">
+
+                            <div style="margin-top: 1rem;"></div>
+
+                            <label class="desc-small">Cargar Operaciones (Agrega al historial)</label>
+                            <input type="file" id="file-import-ops" accept=".csv">
+
+                            <div style="margin-top: 1rem;"></div>
+
+                            <label class="desc-small">Cargar Activos (Agrega a la lista)</label>
+                            <input type="file" id="file-import-assets" accept=".csv">
+                        </div>
+
+                        <div class="action-block danger-zone">
+                            <h4>Zona de Peligro</h4>
+                            <button id="btn-clear-all" class="btn-danger">
+                                <i class="fa-solid fa-trash"></i> Borrar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Section -->
+                <div class="card" style="margin-top: 1.5rem;">
+                    <h3>Seguridad</h3>
+                    <p class="desc">Configura una contraseña para restringir el acceso a la aplicación.</p>
+                    <form id="security-form" style="max-width: 400px;">
+                        <div class="form-group" id="old-pass-group" style="display: none;">
+                            <label for="sec-old-pass">Contraseña Actual</label>
+                            <input type="password" id="sec-old-pass" placeholder="Ingresa tu contraseña actual">
+                        </div>
+                        <div class="form-group">
+                            <label for="sec-new-pass">Nueva Contraseña</label>
+                            <input type="password" id="sec-new-pass" placeholder="Deja vacío para quitar seguridad">
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <i class="fa-solid fa-lock"></i> Actualizar Seguridad
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" style="display: none;">
+        <div class="login-card">
+            <div class="brand" style="justify-content: center; margin-bottom: 1.5rem;">
+                <i class="fa-solid fa-chart-pie" style="font-size: 2rem;"></i>
+            </div>
+            <h2 style="text-align: center; margin-bottom: 0.5rem;">Portafolio Pro</h2>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 1.5rem;">Ingresa tu contraseña
+                para acceder</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <input type="password" id="login-pass" placeholder="Contraseña" required
+                        style="text-align: center; letter-spacing: 2px;">
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">
+                    Ingresar <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+            <p id="login-error"
+                style="color: var(--danger); text-align: center; margin-top: 1rem; font-size: 0.9rem; display: none;">
+                Contraseña incorrecta</p>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
